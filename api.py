@@ -63,9 +63,20 @@ async def analyze(
     if species not in VALID_SPECIES:
         return {"ok": False, "error": "Espécie inválida"}
 
-    # ✅ usa CSV embutido se não enviar arquivo
-    if csv_file is None:
-        data = load_iris_csv("iris.csv")
+    # ✅ usa CSV embutido se não enviar arquivo OU se vier vazio
+if (csv_file is None) or (not getattr(csv_file, "filename", "").strip()):
+    data = load_iris_csv("iris.csv")
+else:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
+        content = await csv_file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    data = load_iris_csv(tmp_path)
+    try:
+        os.remove(tmp_path)
+    except:
+        pass
 
     else:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
