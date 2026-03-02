@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>TDE Iris — Estatística Descritiva</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -11,28 +11,28 @@
     <div class="header">
       <div class="brand">
         <h1>TDE — Iris (Estatística Descritiva)</h1>
-        <p>Selecione atributo e espécie, gere estatística e frequência (por classes/Sturges).</p>
+        <p>Selecione atributo e espécie. Você pode enviar o iris.csv (ou deixar vazio para usar o iris.csv do servidor).</p>
       </div>
-      <div class="badge">Interface simples</div>
+      <div class="badge">Online</div>
     </div>
 
     <div class="grid">
-      <section class="card">
+      <div class="card">
         <div class="card-header">
           <h2>Configurações</h2>
-          <p>Carregue o iris.csv e clique em calcular.</p>
+          <p>Carregue o iris.csv (opcional) e clique em calcular.</p>
         </div>
         <div class="card-body">
-          <div class="form">
+          <form id="form" class="form">
             <div>
-              <label>Arquivo iris.csv</label>
-              <input type="file" id="csvFile" accept=".csv,.txt" />
+              <label>Arquivo iris.csv (opcional)</label>
+              <input id="csv_file" type="file" accept=".csv" />
             </div>
 
             <div class="row">
               <div>
                 <label>Atributo</label>
-                <select id="attr">
+                <select id="attribute">
                   <option value="petal_length">Comprimento da pétala</option>
                   <option value="petal_width">Largura da pétala</option>
                   <option value="sepal_length">Comprimento da sépala</option>
@@ -52,124 +52,121 @@
             </div>
 
             <div class="actions">
-              <button class="btn btn-primary" id="btnRun" type="button">Calcular</button>
-              <button class="btn btn-ghost" id="btnClear" type="button">Limpar</button>
+              <button class="btn btn-primary" id="btnCalcular" type="submit">Calcular</button>
+              <button class="btn btn-ghost" id="btnLimpar" type="button">Limpar</button>
             </div>
 
-            <div class="notice" id="notice">Pronto.</div>
-          </div>
+            <div id="status" class="notice">Pronto.</div>
+          </form>
         </div>
-      </section>
+      </div>
 
-      <section class="card">
+      <div class="card">
         <div class="card-header">
           <h2>Resultados</h2>
           <p>Métricas e frequência agrupada.</p>
         </div>
         <div class="card-body">
           <div class="kpis">
-            <div class="kpi"><p class="name">Média</p><p class="value" id="kMean">—</p></div>
-            <div class="kpi"><p class="name">Mediana</p><p class="value" id="kMedian">—</p></div>
-            <div class="kpi"><p class="name">Moda</p><p class="value" id="kMode">—</p></div>
-            <div class="kpi"><p class="name">Variância</p><p class="value" id="kVar">—</p></div>
-            <div class="kpi"><p class="name">Desvio Padrão</p><p class="value" id="kStd">—</p></div>
-            <div class="kpi"><p class="name">N</p><p class="value" id="kN">—</p></div>
+            <div class="kpi"><p class="name">Média</p><p class="value" id="mean">—</p></div>
+            <div class="kpi"><p class="name">Mediana</p><p class="value" id="median">—</p></div>
+            <div class="kpi"><p class="name">Moda</p><p class="value" id="mode">—</p></div>
+            <div class="kpi"><p class="name">Variância</p><p class="value" id="variance">—</p></div>
+            <div class="kpi"><p class="name">Desvio padrão</p><p class="value" id="std_dev">—</p></div>
+            <div class="kpi"><p class="name">N</p><p class="value" id="n">—</p></div>
           </div>
 
-          <div class="table-wrap" style="margin-top:14px;">
+          <div class="table-wrap">
             <table>
               <thead>
-                <tr>
-                  <th>Classe</th>
-                  <th>fi</th>
-                  <th>Fac</th>
-                  <th>fr</th>
-                </tr>
+                <tr><th>Classe</th><th>fi</th><th>Fac</th><th>fr</th></tr>
               </thead>
-              <tbody id="freqBody">
-                <tr><td colspan="4" style="color: rgba(255,255,255,.6);">Sem dados ainda.</td></tr>
+              <tbody id="tbody">
+                <tr><td colspan="4">Sem dados ainda.</td></tr>
               </tbody>
             </table>
           </div>
 
-          <div class="footer" id="footer"></div>
+          <div class="footer" id="foot"></div>
         </div>
-      </section>
+      </div>
     </div>
   </div>
 
   <script>
-  const API = `http://${location.hostname}:8080/analyze`;
+    // 1) COLE AQUI a URL pública da sua API (Render/Railway) depois que você publicar
+    // Exemplo: https://projeto-iris-api.onrender.com
+    const API_BASE = "COLE_AQUI_SUA_API";
 
-    function setText(id, value){ document.getElementById(id).textContent = value; }
+    const $ = (id) => document.getElementById(id);
 
-    function fillTable(rows){
-      const tbody = document.getElementById("freqBody");
-      tbody.innerHTML = "";
-      rows.forEach(r => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.label}</td>
-          <td>${r.fi}</td>
-          <td>${r.fac}</td>
-          <td>${(r.fr).toFixed(4)}</td>
-        `;
-        tbody.appendChild(tr);
-      });
+    function setStatus(msg) { $("status").textContent = msg; }
+
+    function fmtNum(x) {
+      if (x === null || x === undefined || Number.isNaN(x)) return "—";
+      return (Math.round(x * 10000) / 10000).toString();
     }
 
-    function resetUI(msg="Limpo."){
-      setText("kMean","—"); setText("kMedian","—"); setText("kMode","—");
-      setText("kVar","—"); setText("kStd","—"); setText("kN","—");
-      document.getElementById("freqBody").innerHTML =
-        `<tr><td colspan="4" style="color: rgba(255,255,255,.6);">Sem dados ainda.</td></tr>`;
-      setText("notice", msg);
-      setText("footer", "");
+    function limpar() {
+      $("csv_file").value = "";
+      ["mean","median","mode","variance","std_dev","n"].forEach(k => $(k).textContent = "—");
+      $("tbody").innerHTML = `<tr><td colspan="4">Sem dados ainda.</td></tr>`;
+      $("foot").textContent = "";
+      setStatus("Pronto.");
     }
 
-    document.getElementById("btnClear").addEventListener("click", () => resetUI());
+    $("btnLimpar").addEventListener("click", limpar);
 
-    document.getElementById("btnRun").addEventListener("click", async () => {
-      const file = document.getElementById("csvFile").files[0];
-      const attr = document.getElementById("attr").value;
-      const species = document.getElementById("species").value;
-
-      if(!file){
-        setText("notice", "⚠ Selecione o iris.csv primeiro.");
+    $("form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (!API_BASE || API_BASE.includes("COLE_AQUI")) {
+        setStatus("⚠️ Falta configurar a URL da API (API_BASE) no index.html.");
         return;
       }
 
-      const form = new FormData();
-      form.append("csv_file", file);
-      form.append("attribute", attr);
-      form.append("species", species);
+      setStatus("Calculando...");
 
-      setText("notice", "Calculando…");
+      const fd = new FormData();
+      fd.append("attribute", $("attribute").value);
+      fd.append("species", $("species").value);
 
-      try{
-        const res = await fetch(API, { method:"POST", body: form });
-        const data = await res.json();
+      const file = $("csv_file").files[0];
+      if (file) fd.append("csv_file", file);
 
-        if(!data.ok){
-          setText("notice", "⚠ " + data.error);
+      try {
+        const resp = await fetch(API_BASE.replace(/\/$/, "") + "/analyze", {
+          method: "POST",
+          body: fd
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+          setStatus("❌ " + (data.error || "Erro ao calcular"));
           return;
         }
 
-        const r = data.raw;
-        setText("kMean", r.mean.toFixed(4));
-        setText("kMedian", r.median.toFixed(4));
-        setText("kMode", r.mode.toFixed(4));
-        setText("kVar", r.variance.toFixed(4));
-        setText("kStd", r.std_dev.toFixed(4));
-        setText("kN", r.n);
+        const raw = data.raw || {};
+        $("n").textContent = fmtNum(raw.n);
+        $("mean").textContent = fmtNum(raw.mean);
+        $("median").textContent = fmtNum(raw.median);
+        $("mode").textContent = (raw.mode === null || raw.mode === undefined) ? "—" : String(raw.mode);
+        $("variance").textContent = fmtNum(raw.variance);
+        $("std_dev").textContent = fmtNum(raw.std_dev);
 
-        fillTable(data.freq_grouped);
+        const rows = (data.freq_grouped || []).map(r => {
+          const fr = r.fr !== undefined ? (Math.round(r.fr * 10000) / 10000) : "—";
+          return `<tr><td>${r.label}</td><td>${r.fi}</td><td>${r.fac}</td><td>${fr}</td></tr>`;
+        }).join("");
 
-        setText("notice", "OK ✅");
-        setText("footer", `k=${data.grouped_stats.k} | h=${data.grouped_stats.h.toFixed(4)}`);
+        $("tbody").innerHTML = rows || `<tr><td colspan="4">Sem dados ainda.</td></tr>`;
 
-      } catch(e){
-        setText("notice", "⚠ Erro ao conectar na API. Confirme se está rodando em 127.0.0.1:8000.");
+        const gs = data.grouped_stats || {};
+        $("foot").textContent = `k=${gs.k ?? "—"} | h=${fmtNum(gs.h)} | média (agrup.)=${fmtNum(gs.mean)} | mediana (agrup.)=${fmtNum(gs.median)}`;
+
+        setStatus("✅ Pronto!");
+      } catch (err) {
+        setStatus("❌ Falha ao conectar na API. Verifique o link público do servidor.");
       }
     });
   </script>
